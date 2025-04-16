@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Forum</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="forum-container">
+        <div id="chatBox"></div>
+        <div class="forum-input">
+            <input id="messageInput" type="text" placeholder="Type a message...">
+            <button class="forum-send-btn" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let currentUser = null;
+
+        // Fetch messages only after confirming authentication
+        fetch('/check-auth')
+            .then(response => response.json())
+            .then(data => {
+                if (data.authenticated) {
+                    currentUser = data.username;
+                    fetchMessages(); // Fetch messages only if authenticated
+                } else {
+                    window.location.href = '/login.html'; // Redirect if not authenticated
+                }
+            })
+            .catch(error => {
+                console.error('Error checking auth:', error);
+                window.location.href = '/login.html'; // Redirect on error
+            });
+
+        function fetchMessages() {
+            fetch('/messages', { credentials: 'include' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch messages');
+                    }
+                    return response.json();
+                })
+                .then(messages => {
+                    console.log('Fetched messages:', messages);
+                    const chatBox = document.getElementById('chatBox');
+                    chatBox.innerHTML = '';
+                    messages.forEach(msg => {
+                        displayMessage(msg);
+                    });
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                })
+                .catch(error => console.error('Error loading messages:', error));
+        }
+
+        socket.on('chatMessage', (data) => {
+            console.log('New message received:', data);
+            displayMessage(data);
+            const chatBox = document.getElementById('chatBox');
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
+
+        function displayMessage(msg) {
+            const chatBox = document.getElementById('chatBox');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            if (msg.username === 'admin') {
+                messageDiv.classList.add('admin-message');
+            }
+            messageDiv.innerHTML = `<strong>${msg.username}:</strong> ${msg.message} <span class="timestamp">${new Date(msg.timestamp).toLocaleTimeString()}</span>`;
+            messageDiv.dataset.id = msg._id;
+            if (currentUser === 'admin') {
+                const deleteBtn = document.createElement('span');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.textContent = 'x';
+                deleteBtn.onclick = () => deleteMessage(msg._id);
+                messageDiv.appendChild(deleteBtn);
+            }
+            chatBox.appendChild(messageDiv);
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            if (input.value.trim()) {
+                socket.emit('chatMessage', input.value);
+                input.value = '';
+            }
+        }
+
+        function deleteMessage(id) {
+            fetch(`/messages/${id}`, { method: 'DELETE' })
+                .then(response => {
+                    if (response.ok) {
+                        document.querySelector(`[data-id="${id}"]`).remove();
+                    } else {
+                        alert('Failed to delete message');
+                    }
+                })
+                .catch(error => console.error('Error deleting message:', error));
+        }
+    </script>
+    <script src="js.js"></script>
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - MyDrugs Online</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+<body>
+    <div class="checkout-container">
+        <h1>Checkout</h1>
+        <div class="progress-bar">
+            <span class="active">1. Basket</span>
+            <span>2. Details</span>
+            <span>3. Confirm</span>
+        </div>
+        <div class="checkout-sections">
+            <!-- Basket Items -->
+            <section class="basket-section">
+                <h2>Your Basket</h2>
+                <div id="basket-items"></div>
+            </section>
+            <!-- Order Form -->
+            <section class="form-section">
+                <form id="order-form">
+                    <h2>Contact Information</h2>
+                    <div class="form-group">
+                        <label for="first-name">First Name <span class="required">*</span></label>
+                        <input type="text" id="first-name" name="firstName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="last-name">Last Name <span class="required">*</span></label>
+                        <input type="text" id="last-name" name="lastName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email <span class="required">*</span></label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Phone Number <span class="required">*</span></label>
+                        <input type="tel" id="phone" name="phone" required>
+                    </div>
+                    <h2>Billing Address</h2>
+                    <div class="form-group">
+                        <label for="billing-street">Street Address <span class="required">*</span></label>
+                        <input type="text" id="billing-street" name="billingStreet" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="billing-city">City <span class="required">*</span></label>
+                        <input type="text" id="billing-city" name="billingCity" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="billing-postal">Postal Code <span class="required">*</span></label>
+                        <input type="text" id="billing-postal" name="billingPostal" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="billing-country">Country <span class="required">*</span></label>
+                        <input type="text" id="billing-country" name="billingCountry" required>
+                    </div>
+                    <h2>Shipping Address</h2>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="same-as-billing" checked>
+                            Same as billing address
+                        </label>
+                    </div>
+                    <div id="shipping-fields" style="display: none;">
+                        <div class="form-group">
+                            <label for="shipping-street">Street Address <span class="required">*</span></label>
+                            <input type="text" id="shipping-street" name="shippingStreet">
+                        </div>
+                        <div class="form-group">
+                            <label for="shipping-city">City <span class="required">*</span></label>
+                            <input type="text" id="shipping-city" name="shippingCity">
+                        </div>
+                        <div class="form-group">
+                            <label for="shipping-postal">Postal Code <span class="required">*</span></label>
+                            <input type="text" id="shipping-postal" name="shippingPostal">
+                        </div>
+                        <div class="form-group">
+                            <label for="shipping-country">Country <span class="required">*</span></label>
+                            <input type="text" id="shipping-country" name="shippingCountry">
+                        </div>
+                    </div>
+                    <h2>Payment Method</h2>
+                    <div class="form-group">
+                        <label for="payment-method">Currency <span class="required">*</span></label>
+                        <select id="payment-method" name="paymentMethod" required>
+                            <option value="">Select Currency</option>
+                            <option value="BTC">BTC</option>
+                            <option value="ETH">ETH</option>
+                        </select>
+                    </div>
+                    <h2>Additional Information</h2>
+                    <div class="form-group">
+                        <label for="notes">Order Notes (Optional)</label>
+                        <textarea id="notes" name="notes" rows="4"></textarea>
+                    </div>
+                    <div class="order-summary">
+                        <h2>Order Summary</h2>
+                        <p>Total Price: <span id="total-price">0.0000</span> <span id="currency"></span></p>
+                        <button type="submit" class="confirm-button">Place Order</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </div>
+    <script src="js.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let basket = [];
+            const basketItemsDiv = document.getElementById('basket-items');
+            const totalPriceSpan = document.getElementById('total-price');
+            const currencySpan = document.getElementById('currency');
+            const paymentMethodSelect = document.getElementById('payment-method');
+            const sameAsBillingCheckbox = document.getElementById('same-as-billing');
+            const shippingFields = document.getElementById('shipping-fields');
+
+            // Fetch basket
+            fetch('/get-basket', { credentials: 'include' })
+                .then(response => response.json())
+                .then(data => {
+                    basket = data;
+                    basketItemsDiv.innerHTML = '';
+                    if (basket.length === 0) {
+                        basketItemsDiv.innerHTML = '<p>Your basket is empty.</p>';
+                        document.getElementById('order-form').style.display = 'none';
+                    } else {
+                        basket.forEach(item => {
+                            const itemDiv = document.createElement('div');
+                            itemDiv.className = 'basket-item';
+                            itemDiv.innerHTML = `
+                                <span>${item.name} x ${item.quantity}</span>
+                                <span>${item.priceBTC} BTC / ${item.priceETH} ETH</span>
+                            `;
+                            basketItemsDiv.appendChild(itemDiv);
+                        });
+                    }
+                    updateTotalPrice();
+                })
+                .catch(error => {
+                    console.error('Error fetching basket:', error);
+                    basketItemsDiv.innerHTML = '<p>Error loading basket.</p>';
+                });
+
+            // Toggle shipping fields
+            sameAsBillingCheckbox.addEventListener('change', () => {
+                shippingFields.style.display = sameAsBillingCheckbox.checked ? 'none' : 'block';
+                const inputs = shippingFields.querySelectorAll('input');
+                inputs.forEach(input => {
+                    input.required = !sameAsBillingCheckbox.checked;
+                });
+            });
+
+            // Update total price
+            paymentMethodSelect.addEventListener('change', updateTotalPrice);
+
+            // Handle form submission
+            document.getElementById('order-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const formData = {
+                    firstName: document.getElementById('first-name').value.trim(),
+                    lastName: document.getElementById('last-name').value.trim(),
+                    email: document.getElementById('email').value.trim(),
+                    phone: document.getElementById('phone').value.trim(),
+                    billingStreet: document.getElementById('billing-street').value.trim(),
+                    billingCity: document.getElementById('billing-city').value.trim(),
+                    billingPostal: document.getElementById('billing-postal').value.trim(),
+                    billingCountry: document.getElementById('billing-country').value.trim(),
+                    shippingStreet: sameAsBillingCheckbox.checked ? document.getElementById('billing-street').value.trim() : document.getElementById('shipping-street').value.trim(),
+                    shippingCity: sameAsBillingCheckbox.checked ? document.getElementById('billing-city').value.trim() : document.getElementById('shipping-city').value.trim(),
+                    shippingPostal: sameAsBillingCheckbox.checked ? document.getElementById('billing-postal').value.trim() : document.getElementById('shipping-postal').value.trim(),
+                    shippingCountry: sameAsBillingCheckbox.checked ? document.getElementById('billing-country').value.trim() : document.getElementById('shipping-country').value.trim(),
+                    paymentMethod: paymentMethodSelect.value,
+                    notes: document.getElementById('notes').value.trim()
+                };
+
+                // Client-side validation
+                if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone ||
+                    !formData.billingStreet || !formData.billingCity || !formData.billingPostal || !formData.billingCountry ||
+                    (!sameAsBillingCheckbox.checked && (!formData.shippingStreet || !formData.shippingCity || !formData.shippingPostal || !formData.shippingCountry)) ||
+                    !formData.paymentMethod) {
+                    alert('Please fill in all required fields');
+                    return;
+                }
+                if (basket.length === 0) {
+                    alert('Your basket is empty');
+                    return;
+                }
+
+                fetch('/confirm-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(formData)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Order confirmed! Thank you for your purchase.');
+                        window.location.href = '/shop.html';
+                    } else {
+                        alert(data.message || 'Error confirming order');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error confirming order');
+                });
+            });
+
+            function updateTotalPrice() {
+                const paymentMethod = paymentMethodSelect.value;
+                let total = 0;
+                if (paymentMethod && basket.length > 0) {
+                    basket.forEach(item => {
+                        total += item.quantity * (paymentMethod === 'BTC' ? item.priceBTC : item.priceETH);
+                    });
+                    currencySpan.textContent = paymentMethod;
+                } else {
+                    currencySpan.textContent = '';
+                }
+                totalPriceSpan.textContent = total.toFixed(4);
+            }
+        });
+    </script>
+</body>
+</html>
